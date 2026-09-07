@@ -6,26 +6,29 @@
 
 //ゲーム情報
 DG::Image::SP imgBG, imgCat, GS;
-DG::Font::SP fontA,fontB,fontHS;
+DG::Font::SP fontA, fontB, fontHS;
 //ゲーム状態　　　準備　ゲーム中　終了
-enum class Stata { Ready, Normal, Done};
+enum class Stata { Ready, Normal, Done };
 
-struct Chara
+struct gameState
 {
 	Stata stata;
 	int score;
 	int highscore;
-	int limit; 
 	int timecnt;
-	int count;
+	int AnimCount;
+	int limit;
 };
-Chara cat;
+gameState cat;
 string filepath;
 
 //関数の宣言
-bool Savedata_Save(int&s_);
-bool Savedata_Load(int&s_);
-void Highscore_Render();
+bool Savedata_Save(int& s_);
+bool Savedata_Load(int& s_);
+void Ready_Render();
+void Normal_Render();
+void Done_Render();
+
 
 //-----------------------------------------------------------------------------
 //初期化処理
@@ -81,7 +84,7 @@ void  MyGameMain_Initialize()
 	cat.limit = 11 * 60;
 	cat.timecnt = 10;
 	cat.score = 0;
-	cat.count = 0;
+	cat.AnimCount = 0;
 	cat.highscore = 0;
 	Savedata_Load(cat.highscore);
 
@@ -106,50 +109,38 @@ void  MyGameMain_Finalize()
 void  MyGameMain_UpDate()
 {
 	auto inp = ge->in1->GetState();
-	//準備段階ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	if (cat.stata == Stata::Ready)
-	{
+
+	switch (cat.stata) {
+		//準備段階ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	case Stata::Ready:
 		//Zキー押して
 		if (true == inp.B1.down)
 		{
 			cat.stata = Stata::Normal;
 		}
-	}
-	//ゲームスタートーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	if (cat.stata == Stata::Normal)
-	{
+		break;
+		//ゲームスタートーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	case Stata::Normal:
 		cat.limit--;		//ゲームカウンタ
-		cat.timecnt++;      //行動カウンタ
+		cat.timecnt++;
 		//０になったら、結果画面へ
 		if (cat.limit < 0)
 		{
 			cat.stata = Stata::Done;
 			cat.timecnt = 0;
 		}
-		else {
-			if (true == inp.B1.down)
-			{
-				cat.stata = Stata::Normal;
-				//20秒立ったら
-				if (cat.timecnt > 20)
-				{
-					cat.score++;
-				}
-				//猫ふみふみのアニメーション
-				//1、2、1、2で戻すようにする
-				cat.count += 1;
-				if (cat.count == 3)
-				{
-					cat.count = 1;
-				}
-
-			}
-
+		if (true == inp.B1.down)
+		{
+			cat.stata = Stata::Normal;
+			cat.score++;
+			//猫のアニメーション
+			//1、2、1、2で戻すようにする;
+			cat.AnimCount = (cat.AnimCount % 2) + 1;
 		}
-	}
-	//ゲーム終了ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	if (cat.stata == Stata::Done)
-	{
+
+		break;
+		//ゲーム終了ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	case Stata::Done:
 		cat.timecnt++;
 		if (cat.timecnt >= 180)
 		{
@@ -161,7 +152,7 @@ void  MyGameMain_UpDate()
 				cat.stata = Stata::Ready;
 				cat.limit = 11 * 60;
 				cat.score = 0;
-				
+
 			}
 		}
 		if (cat.score > cat.highscore)
@@ -169,9 +160,8 @@ void  MyGameMain_UpDate()
 			cat.highscore = cat.score;
 			Savedata_Save(cat.highscore);
 		}
-		
+		break;
 	}
-	//TODO:ロード中とセーブを実装したい
 
 }
 //-----------------------------------------------------------------------------
@@ -185,90 +175,95 @@ void  MyGameMain_Render2D()
 	ML::Box2D src0(0, 0, 480, 270);
 	imgBG->Draw(draw0, src0);
 
-	//フォント描画
-	//ーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	//準備段階
-	//ーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	if (cat.stata == Stata::Ready)
+	switch (cat.stata)
 	{
-		//ルール説明画像
-		ML::Box2D draw(40, 40, 400, 200);
-		ML::Box2D src(0, 0, 400, 200);
-		GS->Draw(draw, src);
-
-		//「Zキーでスタート」
-		ML::Box2D textBox(300, 250, 480, 270);
-		string text = "Zキーでスタート";
-		fontB->Draw(textBox, text, ML::Color(1.0f, 1.0f, 1.0f, 1.0f));
-
-		//ここでハイスコアの書き出し（ロード）
-		Highscore_Render();
-	}
-	
-	//ーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	//ゲーム開始
-	//ーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	if (cat.stata == Stata::Normal)
-	{
-		//一回押したら
-		ML::Box2D draw1(160, 40, 150, 240);
-		ML::Box2D src1(cat.count * 150, 0, 150, 240);
-		imgCat->Draw(draw1, src1);
-
-
-		//得点の表示
-		ML::Box2D textBox(0, 0, 480, 270);
-		string text = "score:" + to_string(cat.score);
-		fontA->Draw(textBox, text, ML::Color(1.0f, 1.0f, 1.0f, 1.0f));
-
-		//カウントダウン
-		ML::Box2D textBox2(400, 0, 480, 270);
-		string text2 = to_string(cat.limit / 60);
-		fontA->Draw(textBox2, text2, ML::Color(1.0f, 1.0f, 1.0f, 1.0f));
-	}
-	//ーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	//ゲーム終了
-	//ーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	if (cat.stata == Stata::Done)
-	{
-
-		//結果は…〇〇回
-		ML::Box2D textBox2(0, 0, 480, 270);
-		string text2 = "結果は..." + to_string(cat.score) + "ふみふみ";
-		fontA->Draw(textBox2, text2, ML::Color(1.8f, 0.7f, 0.0f, 0.1f));
-		if (cat.timecnt <= 180)
-		{
-			//少々待ってね！
-			ML::Box2D textBox1(300, 250, 480, 270);
-			string text1 = "少々待ってね";
-			fontB->Draw(textBox1, text1, ML::Color(1.0f, 1.0f, 1.0f, 1.0f));
-		}
-		if (cat.timecnt >= 180)
-		{
-			//「Zキーでタイトルへ」
-			ML::Box2D textBox1(300, 250, 480, 270);
-			string text1 = "Zキーでタイトル";
-			fontB->Draw(textBox1, text1, ML::Color(1.0f, 1.0f, 1.0f, 1.0f));
-		} 
+	case Stata::Ready:
+		Ready_Render();
+		break;
+	case Stata::Normal:
+		Normal_Render();
+		break;
+	case Stata::Done:
+		Done_Render();
+		break;
 	}
 
 }
-void Highscore_Render()
+//-----------------------------------------------------------------------------
+//描画処理
+//機能概要：各ゲーム遷移のフォントの描画
+//-----------------------------------------------------------------------------
+//準備段階ーReadyーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+void Ready_Render()
 {
-	
+	//ルール説明画像
+	ML::Box2D draw(40, 40, 400, 200);
+	ML::Box2D src(0, 0, 400, 200);
+	GS->Draw(draw, src);
+
 	//「Zキーでスタート」
-	ML::Box2D textBox(100, 250, 480, 270);
-	string text = "ハイスコア："+to_string(cat.highscore);
-	fontB->Draw(textBox, text, ML::Color(1.0f, 1.0f, 1.0f, 1.0f));
-	//ハイスコアを書き出す
+	ML::Box2D textBox0(300, 250, 480, 270);
+	string text0 = "Zキーでスタート";
+	fontB->Draw(textBox0, text0, ML::Color(1.0f, 1.0f, 1.0f, 1.0f));
+
+	//ここでハイスコアの書き出し（ロード）
+	ML::Box2D textBox1(100, 250, 480, 270);
+	string text1 = "ハイスコア：" + to_string(cat.highscore);
+	fontB->Draw(textBox1, text1, ML::Color(1.0f, 1.0f, 1.0f, 1.0f));
+
 }
-bool Savedata_Save(int&s_)
+//ゲーム内ーNormalーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+void Normal_Render()
+{
+	//一回押したら
+	ML::Box2D draw1(160, 40, 150, 240);
+	ML::Box2D src1(cat.AnimCount * 150, 0, 150, 240);
+	imgCat->Draw(draw1, src1);
+
+
+	//得点の表示
+	ML::Box2D textBox0(0, 0, 480, 270);
+	string text0 = "score:" + to_string(cat.score);
+	fontA->Draw(textBox0, text0, ML::Color(1.0f, 1.0f, 1.0f, 1.0f));
+
+	//カウントダウン
+	ML::Box2D textBox1(400, 0, 480, 270);
+	string text1 = to_string(cat.limit / 60);
+	fontA->Draw(textBox1, text1, ML::Color(1.0f, 1.0f, 1.0f, 1.0f));
+}
+//リザルトーDoneーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+void Done_Render()
+{
+	//結果は…〇〇回
+	ML::Box2D textBox0(0, 0, 480, 270);
+	string text0 = "結果は..." + to_string(cat.score) + "ふみふみ";
+	fontA->Draw(textBox0, text0, ML::Color(1.8f, 0.7f, 0.0f, 0.1f));
+	if (cat.timecnt <= 180)
+	{
+		//少々待ってね！
+		ML::Box2D textBox1(300, 250, 480, 270);
+		string text1 = "少々待ってね";
+		fontB->Draw(textBox1, text1, ML::Color(1.0f, 1.0f, 1.0f, 1.0f));
+	}
+	if (cat.timecnt >= 180)
+	{
+		//「Zキーでタイトルへ」
+		ML::Box2D textBox2(300, 250, 480, 270);
+		string text2 = "Zキーでタイトル";
+		fontB->Draw(textBox2, text2, ML::Color(1.0f, 1.0f, 1.0f, 1.0f));
+	}
+}
+//-----------------------------------------------------------------------------
+//セーブ機能
+//NOTE:ハイスコアをセーブする。
+//-----------------------------------------------------------------------------
+bool Savedata_Save(int& s_)
 {
 	ofstream fin(filepath);
-	
+
 	if (!fin)
 	{
-		//ファイルがない＆現在のハイスコアに届かなかった場合?
+		//ファイルがない場合は保存しない
 		return false;
 	}
 
@@ -277,12 +272,17 @@ bool Savedata_Save(int&s_)
 	fin.close();
 	return true;
 }
-bool Savedata_Load(int&s_)
+//-----------------------------------------------------------------------------
+//ロード機能
+//NOTE：ファイルを読み込む
+//-----------------------------------------------------------------------------
+bool Savedata_Load(int& s_)
 {
 	ifstream fin(filepath);
 
 	if (!fin)
 	{
+		//ファイルがない場合は保存しない
 		return false;
 	}
 
@@ -292,4 +292,4 @@ bool Savedata_Load(int&s_)
 	return true;
 }
 
-	
+

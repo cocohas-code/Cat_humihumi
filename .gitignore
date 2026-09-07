@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+
+# Game runtime data
+./data/text/highscore.txt
