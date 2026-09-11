@@ -8,22 +8,22 @@
 DG::Image::SP imgBG, imgCat, GS;
 DG::Font::SP fontA, fontB, fontHS;
 //ゲーム状態　　　準備　ゲーム中　終了
-enum class Stata { Ready, Normal, Done };
+enum class State { Ready, Normal, Done };
 
-struct gameState
+struct GameState
 {
-	Stata stata;
+	State state;
 	int score;
 	int highscore;
 	int timecnt;
-	int AnimCount;
+	int animCount;
 	int limit;
 };
-gameState cat;
+GameState cat;
 string filepath;
 
 //関数の宣言
-bool Savedata_Save(int& s_);
+bool Savedata_Save(int s_);
 bool Savedata_Load(int& s_);
 void Ready_Render();
 void Normal_Render();
@@ -43,7 +43,7 @@ void  MyGameMain_Initialize()
 	//文字の読み込み
 	fontA = DG::Font::Create("HGS 教科書体", 20, 40);
 	fontB = DG::Font::Create("HGS 教科書体", 10, 20);
-	cat.stata = Stata::Ready;									//最初は準備
+	cat.state = State::Ready;									//最初は準備
 	filepath = "./data/text/highscore.txt";
 
 	//ーーーーーーーーーーーーーーーーーーーーーーーーーーーー
@@ -84,7 +84,7 @@ void  MyGameMain_Initialize()
 	cat.limit = 11 * 60;
 	cat.timecnt = 10;
 	cat.score = 0;
-	cat.AnimCount = 0;
+	cat.animCount = 0;
 	cat.highscore = 0;
 	Savedata_Load(cat.highscore);
 
@@ -96,7 +96,7 @@ void  MyGameMain_Initialize()
 void  MyGameMain_Finalize()
 {
 	imgCat.reset();
-	imgCat.reset();
+	imgBG.reset();
 	GS.reset();
 	fontA.reset();
 	fontB.reset();
@@ -110,37 +110,37 @@ void  MyGameMain_UpDate()
 {
 	auto inp = ge->in1->GetState();
 
-	switch (cat.stata) {
+	switch (cat.state) {
 		//準備段階ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	case Stata::Ready:
+	case State::Ready:
 		//Zキー押して
 		if (true == inp.B1.down)
 		{
-			cat.stata = Stata::Normal;
+			cat.state = State::Normal;
 		}
 		break;
 		//ゲームスタートーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	case Stata::Normal:
+	case State::Normal:
 		cat.limit--;		//ゲームカウンタ
 		cat.timecnt++;
 		//０になったら、結果画面へ
-		if (cat.limit < 0)
+		if (cat.limit <= 0)
 		{
-			cat.stata = Stata::Done;
+			cat.state = State::Done;
 			cat.timecnt = 0;
 		}
 		if (true == inp.B1.down)
 		{
-			cat.stata = Stata::Normal;
+			cat.state = State::Normal;
 			cat.score++;
 			//猫のアニメーション
 			//1、2、1、2で戻すようにする;
-			cat.AnimCount = (cat.AnimCount % 2) + 1;
+			cat.animCount = (cat.animCount % 2) + 1;
 		}
 
 		break;
 		//ゲーム終了ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	case Stata::Done:
+	case State::Done:
 		cat.timecnt++;
 		if (cat.timecnt >= 180)
 		{
@@ -149,12 +149,14 @@ void  MyGameMain_UpDate()
 			{
 				//最初からリセット
 				//TODO:後でスコアセーブデータを加えたい
-				cat.stata = Stata::Ready;
+				cat.state = State::Ready;
 				cat.limit = 11 * 60;
 				cat.score = 0;
+				cat.animCount = 0;
 
 			}
 		}
+		//現在のハイスコアを超えていれば、値を更新する。
 		if (cat.score > cat.highscore)
 		{
 			cat.highscore = cat.score;
@@ -175,15 +177,15 @@ void  MyGameMain_Render2D()
 	ML::Box2D src0(0, 0, 480, 270);
 	imgBG->Draw(draw0, src0);
 
-	switch (cat.stata)
+	switch (cat.state)
 	{
-	case Stata::Ready:
+	case State::Ready:
 		Ready_Render();
 		break;
-	case Stata::Normal:
+	case State::Normal:
 		Normal_Render();
 		break;
-	case Stata::Done:
+	case State::Done:
 		Done_Render();
 		break;
 	}
@@ -217,7 +219,7 @@ void Normal_Render()
 {
 	//一回押したら
 	ML::Box2D draw1(160, 40, 150, 240);
-	ML::Box2D src1(cat.AnimCount * 150, 0, 150, 240);
+	ML::Box2D src1(cat.animCount * 150, 0, 150, 240);
 	imgCat->Draw(draw1, src1);
 
 
@@ -255,15 +257,15 @@ void Done_Render()
 }
 //-----------------------------------------------------------------------------
 //セーブ機能
-//NOTE:ハイスコアをセーブする。
+//機能概要：ハイスコアの値をファイルに書き込む。
 //-----------------------------------------------------------------------------
-bool Savedata_Save(int& s_)
+bool Savedata_Save(int s_)
 {
 	ofstream fin(filepath);
 
 	if (!fin)
 	{
-		//ファイルがない場合は保存しない
+		//親フォルダがない場合失敗
 		return false;
 	}
 
@@ -274,7 +276,7 @@ bool Savedata_Save(int& s_)
 }
 //-----------------------------------------------------------------------------
 //ロード機能
-//NOTE：ファイルを読み込む
+//機能概要：ファイルを読み込む
 //-----------------------------------------------------------------------------
 bool Savedata_Load(int& s_)
 {
